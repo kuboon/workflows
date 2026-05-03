@@ -17,7 +17,7 @@ on:
 
 jobs:
   test:
-    uses: r7kamura/workflows/.github/workflows/rust-test.yml@main
+    uses: kuboon/workflows/.github/workflows/rust-test.yml@main
 ```
 
 See [.github/workflows](/.github/workflows) for more details.

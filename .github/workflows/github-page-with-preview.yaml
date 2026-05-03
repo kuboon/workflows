@@ -1,0 +1,129 @@
+name: Preview PR on GitHub Pages
+
+on:
+  workflow_call:
+    inputs:
+      build-command:
+        description: 'The command to build the static site'
+        type: string
+        default: 'mise run build'
+      dist-dir:
+        description: 'The directory where the built static site is located'
+        type: string
+        default: 'dist'
+
+permissions:
+  contents: read
+  pages: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_COMMAND: ${{ inputs.build-command }}
+      DIST_DIR: ${{ inputs.dist-dir }}
+    outputs:
+      fragment: ${{ steps.branch.outputs.fragment }}
+      base_url: ${{ steps.page-config.outputs.base_url }}
+    steps:
+    - id: branch
+      env:
+        BRANCH: ${{ github.event.pull_request.head.ref }}
+      run: echo "fragment=${BRANCH##*/}" >> $GITHUB_OUTPUT
+    - name: Setup Pages
+      id: page-config
+      uses: actions/configure-pages@v6
+    - run: |
+        curl https://mise.run | sh
+        echo "$HOME/.local/share/mise/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/share/mise/shims" >> $GITHUB_PATH
+
+    - name: Checkout main
+      uses: actions/checkout@v6
+      with:
+        ref: main
+        path: main-src
+    - run: ${{ env.BUILD_COMMAND }}
+      working-directory: main-src
+      env:
+        BASE_URL: ${{ steps.page-config.outputs.base_url }}
+    - run: mv main-src/${{ env.DIST_DIR }} ./dist
+
+    - if: github.event.pull_request
+      name: Checkout PR branch
+      uses: actions/checkout@v6
+      with:
+        path: pr-src
+    - if: github.event.pull_request
+      run: ${{ env.BUILD_COMMAND }}
+      env:
+        BASE_URL: ${{ steps.page-config.outputs.base_url }}/${{ steps.branch.outputs.fragment }}
+      working-directory: pr-src
+    - if: github.event.pull_request
+      run: mv pr-src/${{ env.DIST_DIR }} ./dist/${{ steps.branch.outputs.fragment }}
+
+    - uses: actions/upload-pages-artifact@v5
+      with:
+        path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - id: deployment
+      uses: actions/deploy-pages@v5
+
+  comment:
+    if: github.event.pull_request
+    needs:
+    - build
+    - deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+    - name: Post preview URL
+      uses: actions/github-script@v9
+      env:
+        base_url: ${{ needs.build.outputs.base_url }}
+        fragment: ${{ needs.build.outputs.fragment }}
+      with:
+        script: |
+          const branch = process.env.fragment;
+          const baseUrl = process.env.base_url;
+          const url = `${baseUrl}${branch}/`;
+          const marker = '<!-- preview-url -->';
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const body = `${marker}\nプレビューをデプロイしました: ${url}`;
+          const { data: comments } = await github.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: context.issue.number,
+          });
+          const existing = comments.find((c) => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body,
+            });
+          }
