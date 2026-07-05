@@ -101,7 +101,7 @@ jobs:
         script: |
           const branch = process.env.fragment;
           const baseUrl = process.env.base_url;
-          const url = `${baseUrl}${branch}/`;
+          const url = `${baseUrl}/${branch}/`;
           const marker = '<!-- preview-url -->';
           const owner = context.repo.owner;
           const repo = context.repo.repo;
