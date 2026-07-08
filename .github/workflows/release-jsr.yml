@@ -1,0 +1,51 @@
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: Directory containing deno.json (or jsr.json)
+        type: string
+        default: "."
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - id: meta
+        working-directory: ${{ inputs.directory }}
+        run: |
+          config=deno.json
+          [ -f "$config" ] || config=jsr.json
+          if [ ! -f "$config" ]; then
+            echo "No deno.json or jsr.json found in ${{ inputs.directory }}" >&2
+            exit 1
+          fi
+          name=$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$config')).name)")
+          version=$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$config')).version)")
+          tag="${name##*/}@${version}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Detected tag: $tag"
+      - id: exists
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.meta.outputs.tag }} already exists. Skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: ${{ steps.exists.outputs.exists == 'false' }}
+        working-directory: ${{ inputs.directory }}
+        run: deno publish
+      - if: ${{ steps.exists.outputs.exists == 'false' }}
+        run: |
+          git tag "${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
