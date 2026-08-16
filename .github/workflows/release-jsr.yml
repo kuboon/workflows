@@ -52,19 +52,12 @@ jobs:
           git tag "${{ steps.meta.outputs.tag }}"
           git push origin "${{ steps.meta.outputs.tag }}"
       - name: Job summary
+        if: ${{ steps.exists.outputs.exists == 'false' }}
         run: |
-          if [ "${{ steps.exists.outputs.exists }}" = "true" ]; then
-            {
-              echo "### JSR release skipped"
-              echo ""
-              echo "Tag \`${{ steps.meta.outputs.tag }}\` already exists."
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### Published to JSR"
-              echo ""
-              echo "- Package: [\`${{ steps.meta.outputs.name }}\`](https://jsr.io/${{ steps.meta.outputs.name }})"
-              echo "- Version: \`${{ steps.meta.outputs.version }}\`"
-              echo "- Tag: \`${{ steps.meta.outputs.tag }}\`"
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "### Published to JSR"
+            echo ""
+            echo "- Package: [\`${{ steps.meta.outputs.name }}\`](https://jsr.io/${{ steps.meta.outputs.name }})"
+            echo "- Version: \`${{ steps.meta.outputs.version }}\`"
+            echo "- Tag: \`${{ steps.meta.outputs.tag }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
