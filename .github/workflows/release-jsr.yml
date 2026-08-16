@@ -32,6 +32,8 @@ jobs:
           name=$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$config')).name)")
           version=$(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$config')).version)")
           tag="${name##*/}@${version}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Detected tag: $tag"
       - id: exists
@@ -49,3 +51,20 @@ jobs:
         run: |
           git tag "${{ steps.meta.outputs.tag }}"
           git push origin "${{ steps.meta.outputs.tag }}"
+      - name: Job summary
+        run: |
+          if [ "${{ steps.exists.outputs.exists }}" = "true" ]; then
+            {
+              echo "### JSR release skipped"
+              echo ""
+              echo "Tag \`${{ steps.meta.outputs.tag }}\` already exists."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Published to JSR"
+              echo ""
+              echo "- Package: [\`${{ steps.meta.outputs.name }}\`](https://jsr.io/${{ steps.meta.outputs.name }})"
+              echo "- Version: \`${{ steps.meta.outputs.version }}\`"
+              echo "- Tag: \`${{ steps.meta.outputs.tag }}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
