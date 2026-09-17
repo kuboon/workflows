@@ -111,19 +111,17 @@ jobs:
             repo,
             issue_number: context.issue.number,
           });
-          const existing = comments.find((c) => c.body && c.body.includes(marker));
-          if (existing) {
-            await github.rest.issues.updateComment({
+          const existing = comments.filter((c) => c.body && c.body.includes(marker));
+          for (const c of existing) {
+            await github.rest.issues.deleteComment({
               owner,
               repo,
-              comment_id: existing.id,
-              body,
-            });
-          } else {
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: context.issue.number,
-              body,
+              comment_id: c.id,
             });
           }
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: context.issue.number,
+            body,
+          });
