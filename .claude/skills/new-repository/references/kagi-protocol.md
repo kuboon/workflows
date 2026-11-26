@@ -82,7 +82,8 @@ management) aren't in this set and aren't narrowable to specific repositories at
 
 | Call | Permissions that actually work |
 |---|---|
-| `PATCH /repos/{o}/{r}` (wiki/projects/auto-merge/delete-branch) | `administration:write` alone |
+| `PATCH /repos/{o}/{r}` (wiki/projects/delete-branch) | `administration:write` alone |
+| `PATCH /repos/{o}/{r}` (`allow_auto_merge`) | `administration:write` alone, **but only takes effect on a public repo** — `200 OK` with the field silently staying `false` on a private repo (confirmed on both `kuboon/` and `kbn-one/`, so it's a visibility gate, not an org policy or a permissions problem) |
 | `PUT /repos/{o}/{r}/immutable-releases` | `administration:write` alone |
 | `POST /repos/{o}/{r}/pages` (`build_type:"workflow"`) | `pages:write` **and** `administration:write` together — neither alone is enough, despite the general permissions table implying "either" |
 | `POST /repos/{o}/{r}/generate` (template generation) | **nothing works** — installation tokens aren't a supported auth method for this endpoint at all (confirmed same-owner and cross-owner); needs a GitHub App *user* access token, which kagi doesn't mint |

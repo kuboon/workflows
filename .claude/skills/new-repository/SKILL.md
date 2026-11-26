@@ -100,14 +100,15 @@ approval instead of four:
 }'
 ```
 
-**Known gotcha — `allow_auto_merge` may silently not stick.** In testing, this field came back `200
-OK` but the response body still showed `allow_auto_merge: false` — no error, just silently ignored.
-This looks like an org-level policy on the destination account overriding the per-repo setting, not a
-kagi or permissions problem (`administration:write` is clearly working, since the other three fields
-in the same call land correctly). After this call, re-read the response body and tell the user plainly
-if `allow_auto_merge` didn't take — don't claim success if the field doesn't match what was
-requested. Point them at the org's own settings (Settings → the org → General) rather than retrying
-the same call, since retrying won't change an org policy.
+**Known gotcha — `allow_auto_merge` silently fails on a private repo.** Same shape as the Pages gotcha
+in Step 5: the call comes back `200 OK` but the response body still shows `allow_auto_merge: false`
+— no error, just silently ignored. Confirmed (by testing on both `kuboon/` and `kbn-one/`, so it's
+not an org policy) to be a visibility gate: it only takes effect once the repo is public.
+`administration:write` is clearly not the problem, since the other three fields in the same call land
+correctly either way. If the repo is staying private, tell the user plainly that auto-merge won't
+actually turn on — don't claim success just because the call returned `200`. If the repo will be
+public anyway (e.g. because of Step 5's Pages requirement), set `allow_auto_merge` again *after* that
+visibility change, or combine it into whichever call flips `private` to `false`.
 
 **Discussions**: there's no REST field to toggle `has_discussions` on an *existing* repo — it's
 create-time-only in REST (`POST /user/repos`), and changing it later needs a GraphQL
